@@ -1,0 +1,64 @@
+﻿@model IEnumerable<EventManagementSystem.Models.Event>
+
+@{
+    ViewData["Title"] = "Events";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<!-- Display a list of upcoming events -->
+<table class="table">
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Date</th>
+            <th>Location</th>
+            <th>Max Participants</th>
+            <th>Registered Participants</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var eventModel in Model)
+        {
+            <tr>
+                <td>@eventModel.Title</td>
+                <td>@eventModel.Description</td>
+                <td>@eventModel.Date</td>
+                <td>@eventModel.Location</td>
+                <td>@eventModel.MaxParticipants</td>
+                <td>@eventModel.RegisteredParticipants</td>
+                <td>
+                    @if (User.IsInRole("User"))
+                    {
+                        <form asp-action="Register" asp-route-eventId="@eventModel.Id" method="post">
+                            <button type="submit" class="btn btn-primary"
+                            @(eventModel.RegisteredParticipants >= eventModel.MaxParticipants ? "disabled" : "")>
+                                @if (eventModel.RegisteredParticipants >= eventModel.MaxParticipants)
+                                {
+                                    <span>Registration Closed</span>
+                                }
+                                else
+                                {
+                                    <span>Register</span>
+                                }
+                            </button>
+                        </form>
+                    }
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <a href="@Url.Action("Edit", "Event", new { id = eventModel.Id })" class="btn btn-warning">Edit</a>
+                        <a href="@Url.Action("Delete", "Event", new { id = eventModel.Id })" class="btn btn-danger">Delete</a>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Button to create a new event (only for admins) -->
+@if (User.IsInRole("Admin"))
+{
+    <a href="@Url.Action("Create", "Event")" class="btn btn-success">Create New Event</a>
+}
