@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace EventManagementSystem.Controllers
 {
+    [Authorize] // Ensure that only authenticated users can access this controller
     public class EventController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -17,34 +18,30 @@ namespace EventManagementSystem.Controllers
             _context = context;
         }
 
-        // GET: Events
+        // GET: Events - All users can see events
         public async Task<IActionResult> Index()
         {
             // Retrieve events where the Date string is not null or empty and is greater than or equal to the current date
-            var events = await _context.Events
-                .Where(e => !string.IsNullOrEmpty(e.Date) &&
-                            string.Compare(e.Date, DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"), StringComparison.Ordinal) >= 0)
-                .ToListAsync();
+            var events = await _context.Events.ToListAsync();
 
+            events = events.Where(e => DateTime.Parse(e.Date) >= DateTime.Now).ToList();
             return View(events);
         }
 
-        // GET: Create
+        // GET: Create Event - Only Admins can create events
         [Authorize(Roles = "Admin")]
-        public IActionResult Create() => View();
+        public IActionResult Create()
+        {
+            return View();
+        }
 
-        // POST: Create
+        // POST: Create Event
         [HttpPost]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create(Event eventModel)
         {
             if (ModelState.IsValid)
             {
-                if (string.IsNullOrEmpty(eventModel.Description))
-                {
-                    eventModel.Description = "No description provided";  // Optional: Set a default value if Description is null
-                }
-
                 _context.Add(eventModel);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -52,24 +49,27 @@ namespace EventManagementSystem.Controllers
             return View(eventModel);
         }
 
-        // GET: Edit
+        // GET: Edit Event - Only Admins can edit events
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id)
         {
             var eventModel = await _context.Events.FindAsync(id);
             if (eventModel == null)
+            {
                 return NotFound();
-
+            }
             return View(eventModel);
         }
 
-        // POST: Edit
+        // POST: Edit Event
         [HttpPost]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id, Event eventModel)
         {
             if (id != eventModel.Id)
+            {
                 return NotFound();
+            }
 
             if (ModelState.IsValid)
             {
@@ -81,7 +81,9 @@ namespace EventManagementSystem.Controllers
                 catch (DbUpdateConcurrencyException)
                 {
                     if (!_context.Events.Any(e => e.Id == id))
+                    {
                         return NotFound();
+                    }
                     throw;
                 }
                 return RedirectToAction(nameof(Index));
@@ -89,18 +91,19 @@ namespace EventManagementSystem.Controllers
             return View(eventModel);
         }
 
-        // GET: Delete
+        // GET: Delete Event - Only Admins can delete events
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var eventModel = await _context.Events.FindAsync(id);
             if (eventModel == null)
+            {
                 return NotFound();
-
+            }
             return View(eventModel);
         }
 
-        // POST: DeleteConfirmed
+        // POST: Delete Event
         [HttpPost, ActionName("Delete")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteConfirmed(int id)
@@ -111,36 +114,36 @@ namespace EventManagementSystem.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // User Registration for Events
+        // Registration for Users
         [Authorize(Roles = "User")]
         public async Task<IActionResult> Register(int eventId)
         {
             var userId = User.Identity.Name;
-
-            // Check if the user is already registered for the event
             var existingRegistration = await _context.Registrations
                 .FirstOrDefaultAsync(r => r.UserId == userId && r.EventId == eventId);
 
             if (existingRegistration != null)
+            {
                 return RedirectToAction(nameof(Index));
+            }
 
             var eventModel = await _context.Events.FindAsync(eventId);
             if (eventModel == null || eventModel.RegisteredParticipants >= eventModel.MaxParticipants)
+            {
                 return RedirectToAction(nameof(Index));
+            }
 
-            // Register the user for the event
             var registration = new Registration
             {
                 EventId = eventId,
                 UserId = userId
             };
-            _context.Add(registration);
 
-            // Update the registered participants count
+            _context.Add(registration);
             eventModel.RegisteredParticipants++;
             _context.Update(eventModel);
-
             await _context.SaveChangesAsync();
+
             return RedirectToAction(nameof(Index));
         }
     }
